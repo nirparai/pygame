@@ -19,10 +19,15 @@ display_height = 600
 groundHeight = 35
 FPS = 15
 
+fireSound = pygame.mixer.Sound("tankfire.wav")
+explosionSound = pygame.mixer.Sound("explode.wav")
+pygame.mixer.music.load("background.wav")
+pygame.mixer.music.play(-1)
+
 gameDisplay = pygame.display.set_mode((display_width,display_height), pygame.RESIZABLE)
 pygame.display.set_caption('Tank')
 
-# pygame.display.set_icon(img)
+# pygame.display.set_icon(iimg)
 
 clock = pygame.time.Clock()
 
@@ -252,9 +257,25 @@ def gameLoop():
 				elif event.key == pygame.K_SPACE:
 					damage = fireShell(gun, mainTankX, mainTankY, currentTurPos, firePower, xlocation, barrier_width, randomHeight, enemyTankX, enemyTankY)
 					enemyHealth -= damage
+					possibleMovements = ['f','r']	
+					moveIndex = random.randrange(0,2)
+					for x in range(random.randrange(0,10)):
+						if display_width*0.3 > enemyTankX > display_width*0.03:
+							if possibleMovements[moveIndex] == "f":
+								enemyTankX += 5
+							elif possibleMovements[moveIndex] == "r" :
+								enemyTankX -= 5
+
+							pygame.display.update()
+							clock.tick(FPS)
+
 					damage = enemyFireShell(enemyGun, enemyTankX, enemyTankY, currentTurPos, xlocation, barrier_width, randomHeight, mainTankX, mainTankY)
 					playerHealth -= damage
 
+					if(enemyHealth < 1):
+						game_over()
+					elif(playerHealth < 1)	:
+						game_over(winner="enemy")
 			elif event.type == pygame.KEYUP:
 				if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
 					tankMove = 0
@@ -281,8 +302,12 @@ def gameLoop():
 		healthBars(playerHealth, enemyHealth)
 		gun =tank(mainTankX,mainTankY,currentTurPos)
 		enemyGun =enemy_tank(enemyTankX,enemyTankY,currentTurPos)								
-
+	
 		firePower += powerChange
+		if firePower > 100 :
+			firePower = 100
+		elif firePower < 0 :
+			firePower = 1
 		power(firePower)	
 		barrier(xlocation, randomHeight, barrier_width)		
 		gameDisplay.fill(green, rect = [0, display_height - groundHeight, display_width, groundHeight])
@@ -297,6 +322,7 @@ def barrier(xlocation, randomHeight, barrier_width):
 	pygame.draw.rect(gameDisplay, black, [xlocation, display_height - randomHeight, barrier_width, randomHeight])
 
 def explosion(x, y, size=50):
+	pygame.mixer.Sound.play(explosionSound)
 	explode = True
 
 	while explode:
@@ -322,6 +348,7 @@ def explosion(x, y, size=50):
 
 
 def fireShell(xy, tankx, tanky, turPos, gunPower, xlocation, barrier_width, randomHeight, enemyTankX, enemyTankY):
+	pygame.mixer.Sound.play(fireSound)
 	damage = 0
 	fire = True
 	startingShell =  list(xy)
@@ -346,8 +373,15 @@ def fireShell(xy, tankx, tanky, turPos, gunPower, xlocation, barrier_width, rand
 
 			fire = False
 
-			if enemyTankX + 15 > hit_x >enemyTankX - 15 :
+			if enemyTankX + 10 > hit_x >enemyTankX - 10 :
 				damage += 25
+			elif enemyTankX + 15 > hit_x >enemyTankX - 15 :
+				damage += 18
+			elif enemyTankX + 25 > hit_x >enemyTankX - 25 :
+				damage += 10
+			elif enemyTankX + 30 > hit_x >enemyTankX - 30 :
+				damage += 5			
+
 
 		check_x_1 = startingShell[0] <= xlocation+barrier_width
 		check_x_2 = startingShell[0] >= xlocation
@@ -368,6 +402,7 @@ def fireShell(xy, tankx, tanky, turPos, gunPower, xlocation, barrier_width, rand
 	return damage	
 
 def enemyFireShell(xy, tankx, tanky, turPos, xlocation, barrier_width, randomHeight, pTankX, pTankY):
+	pygame.mixer.Sound.play(fireSound)
 	damage = 0
 	currentPower = 1
 	powerFound = False
@@ -394,9 +429,8 @@ def enemyFireShell(xy, tankx, tanky, turPos, xlocation, barrier_width, randomHei
 				hit_x = int((startingShell[0]*display_height - groundHeight)/startingShell[1])
 				hit_y = int(display_height - groundHeight)
 
-				if pTankX + 15 > hit_x >pTankX - 15 :
+				if pTankX + 15 > hit_x > pTankX - 15 :
 					powerFound = True
-					damage += 25
 				
 				fire = False
 
@@ -422,16 +456,27 @@ def enemyFireShell(xy, tankx, tanky, turPos, xlocation, barrier_width, randomHei
 			if event.type == pygame.QUIT:
 				pygame.quit()
 				quit()
-
-		pygame.draw.circle(gameDisplay, red, (startingShell[0], startingShell[1]), 5)			
-
+	
 		
 		startingShell[0] += (12 - turPos)*2
-		startingShell[1] += int((((startingShell[0] - xy[0]) * 0.015/(currentPower/50))**2)- (turPos +  turPos/(12 - turPos)))
+		gunPower = random.randrange(int(currentPower*0.9),int(currentPower*1.10))
+		startingShell[1] += int((((startingShell[0] - xy[0]) * 0.015/(gunPower/50))**2)- (turPos +  turPos/(12 - turPos)))
+
+		pygame.draw.circle(gameDisplay, red, (startingShell[0], startingShell[1]), 5)	
 
 		if startingShell[1] > display_height - groundHeight:
 			hit_x = int((startingShell[0]*display_height - groundHeight)/startingShell[1])
 			hit_y = int(display_height - groundHeight)
+
+			if pTankX + 10 > hit_x > pTankX - 10 :
+				damage += 25
+			elif pTankX + 15 > hit_x > pTankX - 15 :
+				damage += 18	
+			elif pTankX + 25 > hit_x > pTankX - 25 :
+				damage += 10
+			elif pTankX + 35 > hit_x > pTankX - 35 :
+				damage += 5	
+	
 
 			explosion(hit_x, hit_y)
 
@@ -473,7 +518,11 @@ def healthBars(playerHealth, enemyHealth):
 		enemyHealthColor = red			
 
 	pygame.draw.rect(gameDisplay, playerHealthColor, (680, 25, playerHealth, 25))	
+	health = smallfont.render(str(playerHealth), True, playerHealthColor)
+	gameDisplay.blit(health,[650, 0])	
 	pygame.draw.rect(gameDisplay, enemyHealthColor, (20, 25, enemyHealth, 25))	
+	health = smallfont.render(str(enemyHealth), True, enemyHealthColor)
+	gameDisplay.blit(health,[100, 0])	
 
 
 def power(level):
@@ -503,6 +552,31 @@ def game_intro():
 		message_to_screen("Shoot as many as you can",black,20,"small")
 
 		button("play", 100,500,100,50, green, light_green, action="play")
+		button("controls", 300,500,100,50, yellow, light_yellow,action="controls")
+		button("quit", 500,500,100,50, red , light_red,action="quit")
+
+		pygame.display.update()
+		clock.tick(15)	
+
+def game_over(winner="player"):
+	game_over = True
+
+	while game_over:
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				pygame.quit()
+				quit()
+
+		gameDisplay.fill(white)
+		if(winner=="enemy"):
+			message_to_screen("Game Over", red, -100, "large")
+			message_to_screen("Your Tank Exploaded",black,-30,"small")
+		else:
+			message_to_screen("You Win", green, -100, "large")
+			message_to_screen("Your Chrushed Enemy Tank",black,-30,"small")
+
+
+		button("play again", 100,500,150,50, green, light_green, action="play")
 		button("controls", 300,500,100,50, yellow, light_yellow,action="controls")
 		button("quit", 500,500,100,50, red , light_red,action="quit")
 
